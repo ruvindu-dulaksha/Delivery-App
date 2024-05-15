@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301024858256",
+    "project_id": "savorease-app",
+    "storage_bucket": "savorease-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301024858256:android:f512c7ec9cdca235654815",
+        "android_client_info": {
+          "package_name": "com.example.savorease_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1B35FO6We92B_1lv9S35cR7b22VmFijs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
