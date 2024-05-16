@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:savorease_app/screens/home_page.dart';
@@ -79,12 +81,30 @@ class _MapPageState extends State<MapPage> {
     _cityController.clear();
   }
 
-  void _goToHomePage(BuildContext context) {
-    Navigator.of(context).pop(); // Go back to the previous screen (map screen)
+  void _goToHomePage(BuildContext context) async {
+    // Get the current user's email
+    String? userEmail = FirebaseAuth.instance.currentUser?.email;
+
+    // Get the address and city entered by the user
+    String address = _addressController.text;
+    String city = _cityController.text;
+
+    // Store the address information in the "addresses" collection in Firestore
+    try {
+      await FirebaseFirestore.instance.collection('addresses').add({
+        'userEmail': userEmail,
+        'address': address,
+        'city': city,
+      });
+      print('Address stored successfully!');
+    } catch (error) {
+      print('Failed to store address: $error');
+    }
+
     // Navigate to the home page
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-          builder: (context) => HomePage()), // Replace current screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => HomePage()),
     );
   }
 

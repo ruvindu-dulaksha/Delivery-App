@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:savorease_app/screens/home_page.dart';
-import 'package:savorease_app/screens/login_page.dart'; // Import your home page widget
+import 'package:savorease_app/screens/login_page.dart';
+import 'package:savorease_app/screens/map_page.dart'; // Import your home page widget
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({Key? key}) : super(key: key);
@@ -118,7 +118,7 @@ class SignUpPage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                           builder: (context) =>
-                              HomePage()), // Replace HomePage with your actual home page widget
+                              MapPage()), // Replace MapPage with your actual home page widget
                     );
                   } catch (e) {
                     print('Error: $e');

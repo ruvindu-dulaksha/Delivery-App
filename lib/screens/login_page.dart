@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:savorease_app/screens/admin_page.dart'; // Import your AdminPage widget
 import 'package:savorease_app/screens/map_page.dart';
 import 'package:savorease_app/screens/signup_page.dart';
 
@@ -60,7 +61,7 @@ class LoginPage extends StatelessWidget {
                       EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                 ),
               ),
-              SizedBox(height: 5.0),
+              SizedBox(height: 20.0),
               ElevatedButton(
                 onPressed: () async {
                   try {
@@ -73,13 +74,41 @@ class LoginPage extends StatelessWidget {
 
                     // Check if the user exists in Firebase user table
                     if (userCredential.user != null) {
-                      // Navigate to map page
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MapPage(),
-                        ),
-                      );
+                      // Check if the user is admin
+                      if (emailController.text.trim() == 'admin@gmail.com' &&
+                          passwordController.text == 'admin123') {
+                        // Navigate to admin page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                AdminHomePage(), // Replace AdminPage with your admin page widget
+                          ),
+                        );
+                      } else {
+                        // Check if the user is branch admin
+                        // Here you can add logic to check branch admin table
+                        bool isBranchAdmin =
+                            checkBranchAdmin(emailController.text.trim());
+
+                        if (isBranchAdmin) {
+                          // Navigate to branch admin page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BranchAdminPage(),
+                            ),
+                          );
+                        } else {
+                          // Navigate to map page for regular users
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MapPage(),
+                            ),
+                          );
+                        }
+                      }
                     } else {
                       // User does not exist
                       showDialog(
@@ -152,5 +181,12 @@ class LoginPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Function to check if the user is a branch admin
+  bool checkBranchAdmin(String email) {
+    // Implement your logic to check the branch admin table
+    // Return true if the user is a branch admin, false otherwise
+    return false;
   }
 }

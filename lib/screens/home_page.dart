@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:savorease_app/screens/payment_page.dart';
+import 'package:savorease_app/screens/profile_page.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -261,10 +264,12 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
                       onPressed: () {
+                        _storeOrderDetails();
+                        String city = 'Colombo'; // Example city
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PaymentPage(),
+                            builder: (context) => PaymentPage(city: city),
                           ),
                         );
                       },
@@ -287,6 +292,37 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  void _storeOrderDetails() async {
+    // Get the current user's email
+    String? userEmail = FirebaseAuth.instance.currentUser?.email;
+
+    // Get the total price
+    double totalPrice = _calculateTotalPrice();
+
+    // Get the city from the addresses table
+    String city = 'Colombo'; // Example city
+    // You can fetch the city from the addresses table in Firebase here
+
+    // Store the order details in the "orders" collection in Firestore
+    try {
+      await FirebaseFirestore.instance.collection('orders').add({
+        'userEmail': userEmail,
+        'city': city,
+        'totalPrice': totalPrice,
+        'items': _cartItems.map((item) {
+          return {
+            'name': item.name,
+            'price': item.price,
+            'quantity': item.quantity,
+          };
+        }).toList(),
+      });
+      print('Order details stored successfully!');
+    } catch (error) {
+      print('Failed to store order details: $error');
+    }
   }
 
   void _showPromotions(BuildContext context) {
@@ -529,52 +565,6 @@ class CartItem {
   int quantity;
 
   CartItem({required this.name, required this.price, required this.quantity});
-}
-
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Profile'),
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Name: John Doe',
-            style: TextStyle(fontSize: 18),
-          ),
-          Text(
-            'Email: john.doe@example.com',
-            style: TextStyle(fontSize: 18),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              // Navigate to purchase history page
-            },
-            child: Text('View Purchase History'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Log out logic
-            },
-            child: Text('Log Out'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Navigate to change password page
-            },
-            child: Text('Change Password'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class SearchPage extends StatefulWidget {

@@ -1,49 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Payment App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: HomePage(),
-    );
-  }
-}
-
-class HomePage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Home'),
-      ),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => PaymentPage()),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            primary: Colors.orange, // Orange button color
-          ),
-          child: Text('Make Payment'),
-        ),
-      ),
-    );
-  }
-}
+import 'package:savorease_app/screens/branch_admin.dart';
 
 class PaymentPage extends StatelessWidget {
-  const PaymentPage({Key? key}) : super(key: key);
+  final String city;
+
+  const PaymentPage({Key? key, required this.city}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -53,14 +15,16 @@ class PaymentPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: PaymentForm(),
+        child: PaymentForm(city: city),
       ),
     );
   }
 }
 
 class PaymentForm extends StatefulWidget {
-  const PaymentForm({Key? key}) : super(key: key);
+  final String city;
+
+  const PaymentForm({Key? key, required this.city}) : super(key: key);
 
   @override
   _PaymentFormState createState() => _PaymentFormState();
@@ -70,9 +34,16 @@ class _PaymentFormState extends State<PaymentForm> {
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryDateController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
-  final TextEditingController _amountController = TextEditingController();
 
   bool _isPaymentSuccess = false;
+
+  @override
+  void dispose() {
+    _cardNumberController.dispose();
+    _expiryDateController.dispose();
+    _cvvController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,60 +70,25 @@ class _PaymentFormState extends State<PaymentForm> {
           ),
         ),
         SizedBox(height: 20),
-        TextField(
-          controller: _amountController,
-          decoration: InputDecoration(
-            labelText: 'Total Amount',
+        ElevatedButton(
+          onPressed: () {
+            _processPayment(context);
+          },
+          style: ElevatedButton.styleFrom(
+            primary: Colors.orange, // Orange button color
           ),
+          child: Text('Pay'),
         ),
-        SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                _processPayment(context);
-              },
-              style: ElevatedButton.styleFrom(
-                primary: Colors.orange, // Orange button color
-              ),
-              child: Text('Pay'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                primary: Colors.red, // Red button color
-              ),
-              child: Text('Cancel'),
-            ),
-          ],
+        SizedBox(height: 10),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            primary: Colors.red, // Red button color
+          ),
+          child: Text('Cancel'),
         ),
-        _isPaymentSuccess
-            ? AlertDialog(
-                title: Text('Payment Successful'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Payment Date: ${DateTime.now()}'),
-                    Text('Invoice Number: ABC123'),
-                    Text('Product: Product Name'),
-                    Text('Total Amount: ${_amountController.text}'),
-                  ],
-                ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close the dialog
-                      Navigator.pop(context); // Close the payment page
-                    },
-                    child: Text('Close'),
-                  ),
-                ],
-              )
-            : SizedBox.shrink(),
       ],
     );
   }
@@ -175,7 +111,11 @@ class _PaymentFormState extends State<PaymentForm> {
               // For demo purposes, automatically validate OTP
               if (value == '123456') {
                 Navigator.pop(context); // Close OTP dialog
-                _showSuccessDialog(context);
+                String invoiceNumber = _generateInvoiceNumber();
+                _showSuccessDialog(
+                    context, invoiceNumber); // Pass invoice number
+                _storePaymentDetails(
+                    context); // Store payment details in Firestore
               }
             },
             decoration: InputDecoration(
@@ -188,7 +128,11 @@ class _PaymentFormState extends State<PaymentForm> {
               onPressed: () {
                 // Navigate to bill page
                 Navigator.pop(context); // Close OTP dialog
-                _showSuccessDialog(context);
+                String invoiceNumber = _generateInvoiceNumber();
+                _showSuccessDialog(
+                    context, invoiceNumber); // Pass invoice number
+                _storePaymentDetails(
+                    context); // Store payment details in Firestore
               },
               child: Text('OK'),
             ),
@@ -198,33 +142,123 @@ class _PaymentFormState extends State<PaymentForm> {
     );
   }
 
-  void _showSuccessDialog(BuildContext context) {
+  void _showSuccessDialog(BuildContext context, String invoiceNumber) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Payment Successful'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Payment Date: ${DateTime.now()}'),
-              Text('Invoice Number: ABC123'),
-              Text('Product: Product Name'),
-              Text('Total Amount: ${_amountController.text}'),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Close the dialog
-                Navigator.pop(context); // Close the payment page
-              },
-              child: Text('Close'),
-            ),
-          ],
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('orders')
+              .doc(widget.city)
+              .get(),
+          builder:
+              (BuildContext context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else {
+              if (snapshot.hasError) {
+                return AlertDialog(
+                  title: Text('Error'),
+                  content:
+                      Text('Error fetching order details: ${snapshot.error}'),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close the dialog
+                        Navigator.pop(context); // Close the payment page
+                        _navigateToAdminDashboard(
+                            context); // Navigate to branch admin page dashboard
+                      },
+                      child: Text('Close'),
+                    ),
+                  ],
+                );
+              } else {
+                if (snapshot.data != null && snapshot.data!.exists) {
+                  Map<String, dynamic> orderData =
+                      snapshot.data!.data() as Map<String, dynamic>;
+                  return AlertDialog(
+                    title: Text('Payment Successful'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Payment Date: ${DateTime.now()}'),
+                        Text('Invoice Number: $invoiceNumber'),
+                        Text(
+                            'Product: ${orderData['items']}'), // Update with actual product name
+                        Text(
+                            'Total Amount: ${orderData['totalPrice']}'), // Fetch total price from orders table
+                        Text('City: ${orderData['city']}'),
+                        Text('Address: ${orderData['address']}'),
+                      ],
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close the dialog
+                          Navigator.pop(context); // Close the payment page
+                          _navigateToAdminDashboard(
+                              context); // Navigate to branch admin page dashboard
+                        },
+                        child: Text('Close'),
+                      ),
+                    ],
+                  );
+                } else {
+                  return AlertDialog(
+                    title: Text('Error'),
+                    content: Text('No order found for city: ${widget.city}'),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close the dialog
+                          Navigator.pop(context); // Close the payment page
+                          _navigateToAdminDashboard(
+                              context); // Navigate to branch admin page dashboard
+                        },
+                        child: Text('Close'),
+                      ),
+                    ],
+                  );
+                }
+              }
+            }
+          },
         );
       },
+    );
+  }
+
+  String _generateInvoiceNumber() {
+    // Generate a unique invoice number
+    final now = DateTime.now();
+    return 'INV-${now.year}${now.month}${now.day}-${now.hour}${now.minute}${now.second}';
+  }
+
+  void _storePaymentDetails(BuildContext context) async {
+    // Generate a unique invoice number
+    String invoiceNumber = _generateInvoiceNumber();
+
+    // Store payment details in the purchase collection
+    await FirebaseFirestore.instance.collection('purchase').add({
+      'payment_date': DateTime.now(),
+      'invoice_number': invoiceNumber,
+
+      'city': widget.city,
+      // Add other payment details as needed
+    });
+
+    // Mark the payment as successful
+    setState(() {
+      _isPaymentSuccess = true;
+    });
+  }
+
+  void _navigateToAdminDashboard(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => BranchAdminDashboardPage()),
     );
   }
 }
