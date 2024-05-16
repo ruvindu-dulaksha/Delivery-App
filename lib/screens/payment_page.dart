@@ -185,10 +185,10 @@ class _PaymentFormState extends State<PaymentForm> {
                       children: [
                         Text('Payment Date: ${DateTime.now()}'),
                         Text('Invoice Number: $invoiceNumber'),
-                        Text(
-                            'Product: ${orderData['items']}'), // Update with actual product name
-                        Text(
-                            'Total Amount: ${orderData['totalPrice']}'), // Fetch total price from orders table
+                        // Display order details here
+                        Text('Order Details:'),
+                        Text('Products: ${orderData['products'].join(', ')}'),
+                        Text('Total Amount: ${orderData['total_price']}'),
                         Text('City: ${orderData['city']}'),
                         Text('Address: ${orderData['address']}'),
                       ],
