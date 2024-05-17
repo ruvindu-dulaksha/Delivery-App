@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; // Add this import for date formatting
 
 class BranchAdminDashboardPage extends StatefulWidget {
-  final String city;
+  final String branchAdminEmail;
 
-  const BranchAdminDashboardPage({Key? key, required this.city})
+  const BranchAdminDashboardPage({Key? key, required this.branchAdminEmail})
       : super(key: key);
 
   @override
@@ -19,15 +19,12 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Branch Admin Dashboard - ${widget.city}'),
+        title: Text('Branch Admin Dashboard'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('purchase')
-              .where('city', isEqualTo: widget.city)
-              .snapshots(),
+          stream: _getStream(),
           builder:
               (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
             if (snapshot.hasError) {
@@ -57,6 +54,28 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
         ),
       ),
     );
+  }
+
+  Stream<QuerySnapshot> _getStream() {
+    switch (widget.branchAdminEmail) {
+      case 'cadmin@gmail.com':
+        return FirebaseFirestore.instance
+            .collection('purchase')
+            .where('city', isEqualTo: 'colombo')
+            .snapshots();
+      case 'jadmin@gmail.com':
+        return FirebaseFirestore.instance
+            .collection('purchase')
+            .where('city', isEqualTo: 'jaffna')
+            .snapshots();
+      case 'kadmin@gmail.com':
+        return FirebaseFirestore.instance
+            .collection('purchase')
+            .where('city', isEqualTo: 'kolkata')
+            .snapshots();
+      default:
+        return FirebaseFirestore.instance.collection('purchase').snapshots();
+    }
   }
 
   Widget _buildOrderCard(DocumentSnapshot order) {
@@ -124,4 +143,10 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
       ),
     );
   }
+}
+
+void main() {
+  runApp(MaterialApp(
+    home: BranchAdminDashboardPage(branchAdminEmail: 'cadmin@gmail.com'),
+  ));
 }

@@ -51,11 +51,18 @@ dependencies:
   flutter_staggered_grid_view: ^0.4.0
   intl: ^0.19.0
   flutter_credit_card: ^4.0.1
+  flutter_launcher_icons: ^0.13.1
   
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+   
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/food-app.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -91,8 +91,7 @@ class LoginPage extends StatelessWidget {
                         // Check if the user is branch admin
                         bool isBranchAdmin = await checkBranchAdmin(
                             emailController.text.trim(),
-                            passwordController.text,
-                            'Colombo'); // Replace 'Colombo' with the city name based on user selection
+                            passwordController.text);
 
                         if (isBranchAdmin) {
                           // Navigate to branch admin dashboard page
@@ -100,7 +99,7 @@ class LoginPage extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => BranchAdminDashboardPage(
-                                city: 'colombo',
+                                branchAdminEmail: emailController.text.trim(),
                               ),
                             ),
                           );
@@ -205,15 +204,13 @@ class LoginPage extends StatelessWidget {
   }
 
   // Function to check if the user is a branch admin
-  Future<bool> checkBranchAdmin(
-      String email, String password, String city) async {
+  Future<bool> checkBranchAdmin(String email, String password) async {
     try {
-      // Query the branchAdmin collection based on the provided email, password, and city
+      // Query the branchAdmin collection based on the provided email and password
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection('branchAdmin')
           .where('email', isEqualTo: email)
           .where('password', isEqualTo: password)
-          .where('city', isEqualTo: city)
           .get();
 
       // Check if there is a document returned

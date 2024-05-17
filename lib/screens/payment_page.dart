@@ -242,15 +242,6 @@ class _PaymentFormState extends State<PaymentForm> {
           actions: [
             ElevatedButton(
               onPressed: () {
-                // Close the dialog
-                Navigator.pop(context);
-
-                // Navigate to the home screen
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => HomePage()),
-                  (route) => false,
-                );
                 // Get current date and time
                 DateTime now = DateTime.now();
                 String currentDateTime =
@@ -276,7 +267,13 @@ class _PaymentFormState extends State<PaymentForm> {
                       'userEmail': latestOrderData['userEmail'],
                     }).then((purchaseRef) {
                       print('Order details stored in the purchase table.');
-                      Navigator.pop(context); // Close the dialog
+
+                      // Navigate to the home page and clear the route stack
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => HomePage()),
+                        (route) => false,
+                      );
                     }).catchError((error) {
                       print('Error storing order details: $error');
                       // Handle error
