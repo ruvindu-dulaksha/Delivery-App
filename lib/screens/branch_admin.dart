@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:intl/intl.dart'; // Add this import for date formatting
+import 'package:intl/intl.dart';
+import 'package:savorease_app/screens/login_page.dart';
 
 class BranchAdminDashboardPage extends StatefulWidget {
   final String branchAdminEmail;
@@ -15,11 +16,31 @@ class BranchAdminDashboardPage extends StatefulWidget {
 }
 
 class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
+  String _userName = "John Doe"; // Default name
+  String _userEmail = "johndoe@example.com"; // Default email
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Branch Admin Dashboard'),
+        actions: [
+          IconButton(
+            onPressed: _showProfileDialog, // Call profile dialog method
+            icon: Icon(Icons.account_circle), // Profile icon
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LoginPage(), // Navigate to login page
+                ),
+              );
+            },
+            icon: Icon(Icons.logout), // Logout icon
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -60,21 +81,21 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
     switch (widget.branchAdminEmail) {
       case 'cadmin@gmail.com':
         return FirebaseFirestore.instance
-            .collection('purchase')
+            .collection('orders')
             .where('city', isEqualTo: 'colombo')
             .snapshots();
       case 'jadmin@gmail.com':
         return FirebaseFirestore.instance
-            .collection('purchase')
+            .collection('orders')
             .where('city', isEqualTo: 'jaffna')
             .snapshots();
       case 'kadmin@gmail.com':
         return FirebaseFirestore.instance
-            .collection('purchase')
+            .collection('orders')
             .where('city', isEqualTo: 'kolkata')
             .snapshots();
       default:
-        return FirebaseFirestore.instance.collection('purchase').snapshots();
+        return FirebaseFirestore.instance.collection('orders').snapshots();
     }
   }
 
@@ -85,7 +106,7 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
       return SizedBox(); // Return an empty widget if order data is null
     }
 
-    List<dynamic> products = orderData['orderDetails'] ?? [];
+    List<dynamic> products = orderData['items'] ?? [];
     String productsString = products
         .map((product) => '${product['name']} (x${product['quantity']})')
         .join(', ');
@@ -137,10 +158,38 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
             SizedBox(height: 8),
             Text('Products: $productsString'),
             SizedBox(height: 8),
-            Text('Total Amount: \$${orderData['totalAmount']}'),
+            Text('Total Amount: \$${orderData['totalPrice']}'),
           ],
         ),
       ),
+    );
+  }
+
+  void _showProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Profile"),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Name: $_userName"),
+              Text("Email: $_userEmail"),
+              Text("Role: Branch Admin"),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Close"),
+            ),
+          ],
+        );
+      },
     );
   }
 }
