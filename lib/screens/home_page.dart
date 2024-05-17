@@ -29,8 +29,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       final cartItem = _cartItems.firstWhere(
         (item) => item.name == productName,
-        orElse: () =>
-            CartItem(name: productName, price: productPrice, quantity: 0),
+        orElse: () => CartItem(
+            name: productName, price: productPrice, quantity: 0, orderId: ''),
       );
 
       if (cartItem.quantity == 0) {
@@ -264,14 +264,7 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
                       onPressed: () {
-                        _storeOrderDetails();
-                        String city = 'Colombo'; // Example city
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PaymentPage(city: city),
-                          ),
-                        );
+                        _storeOrderDetails(context);
                       },
                       style: ElevatedButton.styleFrom(
                         primary: Colors.orange,
@@ -294,23 +287,29 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _storeOrderDetails() async {
+  void _storeOrderDetails(BuildContext context) async {
     // Get the current user's email
     String? userEmail = FirebaseAuth.instance.currentUser?.email;
 
-    // Get the total price
-    double totalPrice = _calculateTotalPrice();
+    // Check if userEmail is null
+    if (userEmail == null) {
+      print('User email is null. Cannot store order details.');
+      return;
+    }
 
-    // Get the city from the addresses table
-    String city = 'Colombo'; // Example city
-    // You can fetch the city from the addresses table in Firebase here
+    // Retrieve the city from the addresses table
+    String city = await _getCity(userEmail);
 
-    // Store the order details in the "orders" collection in Firestore
+    // Generate a unique order ID
+    String orderId = FirebaseFirestore.instance.collection('orders').doc().id;
+
+    // Store the order details in the "orders" collection in Firestore with the explicit order ID
     try {
-      await FirebaseFirestore.instance.collection('orders').add({
+      await FirebaseFirestore.instance.collection('orders').doc(orderId).set({
+        'orderId': orderId,
         'userEmail': userEmail,
         'city': city,
-        'totalPrice': totalPrice,
+        'totalPrice': _calculateTotalPrice(),
         'items': _cartItems.map((item) {
           return {
             'name': item.name,
@@ -319,31 +318,72 @@ class _HomePageState extends State<HomePage> {
           };
         }).toList(),
       });
-      print('Order details stored successfully!');
+
+      print('Order details stored successfully with ID: $orderId');
+
+      // Update order ID in the cart items
+      _cartItems.forEach((item) {
+        item.orderId = orderId;
+      });
+
+      // Navigate to PaymentPage with orderId
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentPage(
+            userEmail: userEmail,
+            orderId: orderId, // Pass the orderId to the PaymentPage
+          ),
+        ),
+      );
     } catch (error) {
       print('Failed to store order details: $error');
     }
   }
 
-  void _showPromotions(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Promotions'),
-          content: Text('Check out our latest promotions!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+  Future<String> _getCity(String userEmail) async {
+    try {
+      // Query the addresses collection based on the user's email
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('addresses')
+          .where('userEmail', isEqualTo: userEmail)
+          .get();
+
+      // If there are documents returned, retrieve the city from the first document
+      if (querySnapshot.docs.isNotEmpty) {
+        return querySnapshot.docs.first['city'];
+      } else {
+        // No address found for the user
+        print('No address found for user: $userEmail');
+        return '';
+      }
+    } catch (error) {
+      print('Error fetching address: $error');
+      return '';
+    }
   }
+
+  // Other methods remain unchanged
+}
+
+void _showPromotions(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Promotions'),
+        content: Text('Check out our latest promotions!'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class PlaceholderWidget extends StatelessWidget {
@@ -563,8 +603,14 @@ class CartItem {
   final String name;
   final String price;
   int quantity;
+  String orderId; // Add orderId field
 
-  CartItem({required this.name, required this.price, required this.quantity});
+  CartItem({
+    required this.name,
+    required this.price,
+    required this.quantity,
+    required this.orderId, // Initialize orderId in constructor
+  });
 }
 
 class SearchPage extends StatefulWidget {

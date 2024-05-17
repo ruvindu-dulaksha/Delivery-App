@@ -142,6 +142,7 @@ class _MapPageState extends State<MapPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30.0),
                 ),
+                contentPadding: EdgeInsets.only(left: 15.0), // Add left padding
               ),
             ),
           ),
@@ -155,6 +156,7 @@ class _MapPageState extends State<MapPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30.0),
                 ),
+                contentPadding: EdgeInsets.only(left: 15.0), // Add left padding
               ),
             ),
           ),

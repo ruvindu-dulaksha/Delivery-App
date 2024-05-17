@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:savorease_app/screens/branch_admin.dart';
+import 'package:intl/intl.dart';
+import 'package:savorease_app/screens/home_page.dart';
 
 class PaymentPage extends StatelessWidget {
-  final String city;
+  final String userEmail;
 
-  const PaymentPage({Key? key, required this.city}) : super(key: key);
+  const PaymentPage(
+      {Key? key, required this.userEmail, required String orderId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -15,16 +18,16 @@ class PaymentPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: PaymentForm(city: city),
+        child: PaymentForm(userEmail: userEmail),
       ),
     );
   }
 }
 
 class PaymentForm extends StatefulWidget {
-  final String city;
+  final String userEmail;
 
-  const PaymentForm({Key? key, required this.city}) : super(key: key);
+  const PaymentForm({Key? key, required this.userEmail}) : super(key: key);
 
   @override
   _PaymentFormState createState() => _PaymentFormState();
@@ -34,15 +37,53 @@ class _PaymentFormState extends State<PaymentForm> {
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryDateController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
 
-  bool _isPaymentSuccess = false;
+  late String _invoiceNumber;
+  late DateTime _currentDateTime;
+  late String _city;
 
   @override
   void dispose() {
     _cardNumberController.dispose();
     _expiryDateController.dispose();
     _cvvController.dispose();
+    _otpController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCity();
+  }
+
+  Future<void> _fetchCity() async {
+    try {
+      // Query the addresses collection based on the user's email
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('addresses')
+          .where('userEmail', isEqualTo: widget.userEmail)
+          .get();
+
+      // If there are documents returned, retrieve the city from the first document
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          _city = querySnapshot.docs.first['city'];
+        });
+      } else {
+        // No address found for the user
+        print('No address found for user: ${widget.userEmail}');
+        setState(() {
+          _city = '';
+        });
+      }
+    } catch (error) {
+      print('Error fetching address: $error');
+      setState(() {
+        _city = '';
+      });
+    }
   }
 
   @override
@@ -75,7 +116,7 @@ class _PaymentFormState extends State<PaymentForm> {
             _processPayment(context);
           },
           style: ElevatedButton.styleFrom(
-            primary: Colors.orange, // Orange button color
+            primary: Colors.orange,
           ),
           child: Text('Pay'),
         ),
@@ -85,7 +126,7 @@ class _PaymentFormState extends State<PaymentForm> {
             Navigator.pop(context);
           },
           style: ElevatedButton.styleFrom(
-            primary: Colors.red, // Red button color
+            primary: Colors.red,
           ),
           child: Text('Cancel'),
         ),
@@ -94,7 +135,6 @@ class _PaymentFormState extends State<PaymentForm> {
   }
 
   void _processPayment(BuildContext context) {
-    // Simulate OTP verification
     _showOTPDialog(context);
   }
 
@@ -104,37 +144,152 @@ class _PaymentFormState extends State<PaymentForm> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Enter OTP'),
-          content: TextField(
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            onChanged: (value) {
-              // For demo purposes, automatically validate OTP
-              if (value == '123456') {
-                Navigator.pop(context); // Close OTP dialog
-                String invoiceNumber = _generateInvoiceNumber();
-                _showSuccessDialog(
-                    context, invoiceNumber); // Pass invoice number
-                _storePaymentDetails(
-                    context); // Store payment details in Firestore
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  hintText: 'Enter OTP',
+                  counterText: '',
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  _verifyOTP(context);
+                },
+                child: Text('Submit'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _verifyOTP(BuildContext context) {
+    // For demo purposes, assume OTP is correct
+    if (_otpController.text == '123456') {
+      Navigator.pop(context); // Close OTP dialog
+      _invoiceNumber = _generateInvoiceNumber();
+      _currentDateTime = DateTime.now();
+      _showBillDialog(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid OTP. Please try again.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showBillDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Payment Bill'),
+          content: FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('orders')
+                .orderBy('orderId',
+                    descending: true) // Order by order ID in descending order
+                .limit(1)
+                .get()
+                .then((value) => value.docs.first),
+            builder: (BuildContext context,
+                AsyncSnapshot<DocumentSnapshot> snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator();
+              } else {
+                if (snapshot.hasError) {
+                  return Text(
+                      'Error fetching order details: ${snapshot.error}');
+                } else {
+                  var orderData = snapshot.data!.data() as Map<String, dynamic>;
+                  List<dynamic> items = orderData['items'];
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'Invoice Number: ${orderData['orderId']}'), // Use orderId as invoice number
+                      Text(
+                          'Date and Time: $_currentDateTime'), // Assuming you have a timestamp field in your order document
+                      Text('Order Details:'),
+                      for (var item in items)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Product: ${item['name']}'),
+                            Text('Price: ${item['price']}'),
+                            Text('Quantity: ${item['quantity']}'),
+                            SizedBox(height: 10),
+                          ],
+                        ),
+                      Text('Total Amount: ${orderData['totalPrice']}'),
+                      Text('City: ${orderData['city']}'),
+                      Text('User Email: ${orderData['userEmail']}'),
+                    ],
+                  );
+                }
               }
             },
-            decoration: InputDecoration(
-              hintText: 'Enter OTP',
-              counterText: '', // Hide character counter
-            ),
           ),
           actions: [
             ElevatedButton(
               onPressed: () {
-                // Navigate to bill page
-                Navigator.pop(context); // Close OTP dialog
-                String invoiceNumber = _generateInvoiceNumber();
-                _showSuccessDialog(
-                    context, invoiceNumber); // Pass invoice number
-                _storePaymentDetails(
-                    context); // Store payment details in Firestore
+                // Close the dialog
+                Navigator.pop(context);
+
+                // Navigate to the home screen
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomePage()),
+                  (route) => false,
+                );
+                // Get current date and time
+                DateTime now = DateTime.now();
+                String currentDateTime =
+                    DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+                // Fetch the latest order
+                FirebaseFirestore.instance
+                    .collection('orders')
+                    .orderBy('orderId', descending: true)
+                    .limit(1)
+                    .get()
+                    .then((value) {
+                  if (value.docs.isNotEmpty) {
+                    var latestOrderData =
+                        value.docs.first.data() as Map<String, dynamic>;
+                    // Store the order data in the purchase table along with the current date and time
+                    FirebaseFirestore.instance.collection('purchase').add({
+                      'invoiceNumber': latestOrderData['orderId'],
+                      'dateTime': currentDateTime, // Use current date and time
+                      'orderDetails': latestOrderData['items'],
+                      'totalAmount': latestOrderData['totalPrice'],
+                      'city': latestOrderData['city'],
+                      'userEmail': latestOrderData['userEmail'],
+                    }).then((purchaseRef) {
+                      print('Order details stored in the purchase table.');
+                      Navigator.pop(context); // Close the dialog
+                    }).catchError((error) {
+                      print('Error storing order details: $error');
+                      // Handle error
+                    });
+                  } else {
+                    print('No orders found');
+                  }
+                }).catchError((error) {
+                  print('Error fetching latest order: $error');
+                  // Handle error
+                });
               },
-              child: Text('OK'),
+              child: Text('Close'),
             ),
           ],
         );
@@ -142,123 +297,8 @@ class _PaymentFormState extends State<PaymentForm> {
     );
   }
 
-  void _showSuccessDialog(BuildContext context, String invoiceNumber) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('orders')
-              .doc(widget.city)
-              .get(),
-          builder:
-              (BuildContext context, AsyncSnapshot<DocumentSnapshot> snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            } else {
-              if (snapshot.hasError) {
-                return AlertDialog(
-                  title: Text('Error'),
-                  content:
-                      Text('Error fetching order details: ${snapshot.error}'),
-                  actions: [
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close the dialog
-                        Navigator.pop(context); // Close the payment page
-                        _navigateToAdminDashboard(
-                            context); // Navigate to branch admin page dashboard
-                      },
-                      child: Text('Close'),
-                    ),
-                  ],
-                );
-              } else {
-                if (snapshot.data != null && snapshot.data!.exists) {
-                  Map<String, dynamic> orderData =
-                      snapshot.data!.data() as Map<String, dynamic>;
-                  return AlertDialog(
-                    title: Text('Payment Successful'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Payment Date: ${DateTime.now()}'),
-                        Text('Invoice Number: $invoiceNumber'),
-                        // Display order details here
-                        Text('Order Details:'),
-                        Text('Products: ${orderData['products'].join(', ')}'),
-                        Text('Total Amount: ${orderData['total_price']}'),
-                        Text('City: ${orderData['city']}'),
-                        Text('Address: ${orderData['address']}'),
-                      ],
-                    ),
-                    actions: [
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context); // Close the dialog
-                          Navigator.pop(context); // Close the payment page
-                          _navigateToAdminDashboard(
-                              context); // Navigate to branch admin page dashboard
-                        },
-                        child: Text('Close'),
-                      ),
-                    ],
-                  );
-                } else {
-                  return AlertDialog(
-                    title: Text('Error'),
-                    content: Text('No order found for city: ${widget.city}'),
-                    actions: [
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context); // Close the dialog
-                          Navigator.pop(context); // Close the payment page
-                          _navigateToAdminDashboard(
-                              context); // Navigate to branch admin page dashboard
-                        },
-                        child: Text('Close'),
-                      ),
-                    ],
-                  );
-                }
-              }
-            }
-          },
-        );
-      },
-    );
-  }
-
   String _generateInvoiceNumber() {
-    // Generate a unique invoice number
     final now = DateTime.now();
     return 'INV-${now.year}${now.month}${now.day}-${now.hour}${now.minute}${now.second}';
-  }
-
-  void _storePaymentDetails(BuildContext context) async {
-    // Generate a unique invoice number
-    String invoiceNumber = _generateInvoiceNumber();
-
-    // Store payment details in the purchase collection
-    await FirebaseFirestore.instance.collection('purchase').add({
-      'payment_date': DateTime.now(),
-      'invoice_number': invoiceNumber,
-
-      'city': widget.city,
-      // Add other payment details as needed
-    });
-
-    // Mark the payment as successful
-    setState(() {
-      _isPaymentSuccess = true;
-    });
-  }
-
-  void _navigateToAdminDashboard(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => BranchAdminDashboardPage()),
-    );
   }
 }

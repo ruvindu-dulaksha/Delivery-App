@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:savorease_app/screens/admin_page.dart'; // Import your AdminPage widget
+import 'package:savorease_app/screens/branch_admin.dart';
 import 'package:savorease_app/screens/map_page.dart';
 import 'package:savorease_app/screens/signup_page.dart';
 
@@ -87,16 +89,19 @@ class LoginPage extends StatelessWidget {
                         );
                       } else {
                         // Check if the user is branch admin
-                        // Here you can add logic to check branch admin table
-                        bool isBranchAdmin =
-                            checkBranchAdmin(emailController.text.trim());
+                        bool isBranchAdmin = await checkBranchAdmin(
+                            emailController.text.trim(),
+                            passwordController.text,
+                            'Colombo'); // Replace 'Colombo' with the city name based on user selection
 
                         if (isBranchAdmin) {
-                          // Navigate to branch admin page
+                          // Navigate to branch admin dashboard page
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => BranchAdminPage(),
+                              builder: (context) => BranchAdminDashboardPage(
+                                city: 'colombo',
+                              ),
                             ),
                           );
                         } else {
@@ -131,7 +136,23 @@ class LoginPage extends StatelessWidget {
                     }
                   } catch (e) {
                     print('Error: $e');
-                    // Handle login error
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text("Invalid Login"),
+                          content: Text(" Please try again later."),
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text("OK"),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   }
                 },
                 child: Padding(
@@ -184,9 +205,26 @@ class LoginPage extends StatelessWidget {
   }
 
   // Function to check if the user is a branch admin
-  bool checkBranchAdmin(String email) {
-    // Implement your logic to check the branch admin table
-    // Return true if the user is a branch admin, false otherwise
-    return false;
+  Future<bool> checkBranchAdmin(
+      String email, String password, String city) async {
+    try {
+      // Query the branchAdmin collection based on the provided email, password, and city
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('branchAdmin')
+          .where('email', isEqualTo: email)
+          .where('password', isEqualTo: password)
+          .where('city', isEqualTo: city)
+          .get();
+
+      // Check if there is a document returned
+      if (querySnapshot.docs.isNotEmpty) {
+        return true; // User is a branch admin
+      } else {
+        return false; // User is not a branch admin
+      }
+    } catch (error) {
+      print('Error checking branch admin: $error');
+      return false; // Assume user is not a branch admin in case of error
+    }
   }
 }

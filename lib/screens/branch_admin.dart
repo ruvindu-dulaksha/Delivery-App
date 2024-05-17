@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:intl/intl.dart';
 
 class BranchAdminDashboardPage extends StatefulWidget {
-  const BranchAdminDashboardPage({Key? key}) : super(key: key);
+  final String city;
+
+  const BranchAdminDashboardPage({Key? key, required this.city})
+      : super(key: key);
 
   @override
   _BranchAdminDashboardPageState createState() =>
@@ -15,12 +19,15 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Branch Admin Dashboard'),
+        title: Text('Branch Admin Dashboard - ${widget.city}'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('purchase').snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('purchase')
+              .where('city', isEqualTo: widget.city)
+              .snapshots(),
           builder:
               (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
             if (snapshot.hasError) {
@@ -53,11 +60,26 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
   }
 
   Widget _buildOrderCard(DocumentSnapshot order) {
-    Map<String, dynamic> orderData = order.data() as Map<String, dynamic>;
-    List<dynamic> products = orderData['products'] ?? [];
+    Map<String, dynamic>? orderData = order.data() as Map<String, dynamic>?;
+
+    if (orderData == null) {
+      return SizedBox(); // Return an empty widget if order data is null
+    }
+
+    List<dynamic> products = orderData['orderDetails'] ?? [];
     String productsString = products
         .map((product) => '${product['name']} (x${product['quantity']})')
         .join(', ');
+
+    bool isOrderComplete = orderData['complete'] ?? false;
+
+    DateTime paymentDate;
+    try {
+      paymentDate = DateTime.parse(orderData['dateTime']);
+    } catch (e) {
+      paymentDate = DateTime.now();
+    }
+    String formattedDate = DateFormat.yMMMMd().add_jm().format(paymentDate);
 
     return Card(
       elevation: 4.0,
@@ -69,18 +91,34 @@ class _BranchAdminDashboardPageState extends State<BranchAdminDashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Invoice: ${orderData['invoice_number']}',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Invoice: ${orderData['invoiceNumber']}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isOrderComplete)
+                  IconButton(
+                    icon: Icon(Icons.check_circle),
+                    onPressed: () {
+                      // Set the 'complete' field of the order to true
+                      order.reference.update({'complete': true});
+                    },
+                  ),
+              ],
             ),
             SizedBox(height: 8),
-            Text('Payment Date: ${orderData['payment_date'].toDate()}'),
+            Text('Payment Date: $formattedDate'),
             SizedBox(height: 8),
             Text('City: ${orderData['city']}'),
             SizedBox(height: 8),
             Text('Products: $productsString'),
             SizedBox(height: 8),
-            Text('Total Amount: \$${orderData['total_amount']}'),
+            Text('Total Amount: \$${orderData['totalAmount']}'),
           ],
         ),
       ),

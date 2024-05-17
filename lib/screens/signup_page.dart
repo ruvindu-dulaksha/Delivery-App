@@ -123,6 +123,23 @@ class SignUpPage extends StatelessWidget {
                   } catch (e) {
                     print('Error: $e');
                     // Handle sign-up error (e.g., display error message)
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text("Sign-Up Failed"),
+                          content: Text(e.toString()),
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text("OK"),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   }
                 },
                 child: Padding(
